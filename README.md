@@ -4,3 +4,7 @@
 3. `vim ~/.vimrc`
 4. `:PluginInstall`
 5. `vim ~/.vimrc`
+
+# AI Rules
+1. `export PATH="$HOME/projects/dotfiles/bin:$PATH"`
+2. run `sync-ai-rules` in repo root
