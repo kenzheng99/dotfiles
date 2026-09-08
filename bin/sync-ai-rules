@@ -1,0 +1,79 @@
+#!/usr/bin/env bash
+# usage: sync-ai-rules [-f] [repo-path]
+
+set -euo pipefail
+
+force=false
+repo_arg="."
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -f)
+      force=true
+      shift
+      ;;
+    -h|--help)
+      cat <<'EOF'
+usage: sync-ai-rules [-f] [repo-path]
+
+Sync personal AI rules from dotfiles into the target repo.
+
+  -f           allow syncing outside a git repo root
+  repo-path    target directory (default: current directory)
+EOF
+      exit 0
+      ;;
+    --)
+      shift
+      break
+      ;;
+    -*)
+      echo "error: unknown option: $1" >&2
+      exit 1
+      ;;
+    *)
+      repo_arg="$1"
+      shift
+      ;;
+  esac
+done
+
+if [[ $# -gt 0 ]]; then
+  echo "error: unexpected argument(s): $*" >&2
+  exit 1
+fi
+
+repo="$(cd "$repo_arg" && pwd)"
+src="${DOTFILES:-$HOME/projects/dotfiles}/ai-rules.md"
+
+is_git_repo_root() {
+  local dir="$1"
+  git -C "$dir" rev-parse --is-inside-work-tree &>/dev/null || return 1
+  [[ "$(git -C "$dir" rev-parse --show-toplevel)" == "$dir" ]]
+}
+
+if ! is_git_repo_root "$repo"; then
+  if [[ "$force" != true ]]; then
+    if git -C "$repo" rev-parse --is-inside-work-tree &>/dev/null; then
+      root="$(git -C "$repo" rev-parse --show-toplevel)"
+      echo "error: not at git repository root: $repo" >&2
+      echo "hint: run from $root, or use -f" >&2
+    else
+      echo "error: not a git repository: $repo" >&2
+      echo "hint: use -f to sync anyway" >&2
+    fi
+    exit 1
+  fi
+  echo "warning: syncing outside git repository root: $repo" >&2
+fi
+
+[[ -f "$src" ]] || { echo "error: missing $src" >&2; exit 1; }
+
+mkdir -p "$repo/.claude/rules" "$repo/.cursor/rules"
+
+ln -sfn "$src" "$repo/.claude/CLAUDE.md"
+ln -sfn "$src" "$repo/.cursor/rules/global-rules.mdc"
+
+echo "linked $src ->"
+echo "  $repo/.claude/CLAUDE.md"
+echo "  $repo/.cursor/rules/global-rules.mdc"
